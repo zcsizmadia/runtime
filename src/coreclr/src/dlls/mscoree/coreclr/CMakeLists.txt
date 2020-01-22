@@ -104,6 +104,8 @@ set(CORECLR_LIBRARIES
     gcinfo # Condition="'$(TargetCpu)'=='amd64' or '$(TargetCpu)' == 'arm' or '$(TargetCpu)' == 'arm64'"
     ildbsymlib
     utilcode
+    v3binder
+    interop
 )
 
 if(CLR_CMAKE_TARGET_WIN32)
