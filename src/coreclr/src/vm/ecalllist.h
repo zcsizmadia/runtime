@@ -993,7 +993,6 @@ FCFuncStart(gComWrappersFuncs)
     QCFuncElement("GetIUnknownImplInternal", ComWrappersNative::GetIUnknownImpl)
     QCFuncElement("GetOrCreateComInterfaceForObjectInternal", ComWrappersNative::GetOrCreateComInterfaceForObject)
     QCFuncElement("GetOrCreateObjectForComInstanceInternal", ComWrappersNative::GetOrCreateObjectForComInstance)
-    QCFuncElement("RegisterForReferenceTrackerHostInternal", ComWrappersNative::RegisterForReferenceTrackerHost)
 FCFuncEnd()
 
 #endif // FEATURE_COMINTEROP
