@@ -56,8 +56,14 @@ namespace System.Reflection.Emit {
 			_tb = new TypeBuilder (mb, name, (visibility | TypeAttributes.Sealed), 
 				typeof(Enum), null, PackingSize.Unspecified, 0, null);
 			_underlyingType = underlyingType;
-			_underlyingField = _tb.DefineField ("value__", underlyingType,
-				(FieldAttributes.SpecialName | FieldAttributes.Private | FieldAttributes.RTSpecialName));
+			FieldAttributes attrs = FieldAttributes.SpecialName;
+			if (visibility.HasFlag (TypeAttributes.Public))
+				attrs |= FieldAttributes.Public;
+			if (visibility.HasFlag (TypeAttributes.NotPublic))
+				attrs |= FieldAttributes.Private;
+			if (visibility.HasFlag (TypeAttributes.RTSpecialName))
+				attrs |= FieldAttributes.RTSpecialName;
+			_underlyingField = _tb.DefineField ("value__", underlyingType, attrs);
 			setup_enum_type (_tb);
 		}
 
