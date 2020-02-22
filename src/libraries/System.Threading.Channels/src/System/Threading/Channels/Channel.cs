@@ -2,6 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System.Collections.Concurrent;
+
 namespace System.Threading.Channels
 {
     /// <summary>Provides static methods for creating channels.</summary>
@@ -12,14 +14,28 @@ namespace System.Threading.Channels
         public static Channel<T> CreateUnbounded<T>() =>
             new UnboundedChannel<T>(runContinuationsAsynchronously: true);
 
+        /// <summary>Creates an unbounded channel usable by any number of readers and writers concurrently.</summary>
+        /// <param name="queue"></param>
+        /// <returns>The created channel.</returns>
+        public static Channel<T> CreateUnbounded<T>(IProducerConsumerCollection<T> queue) =>
+            new UnboundedChannel<T>(runContinuationsAsynchronously: true, queue: queue);
+
         /// <summary>Creates an unbounded channel subject to the provided options.</summary>
         /// <typeparam name="T">Specifies the type of data in the channel.</typeparam>
         /// <param name="options">Options that guide the behavior of the channel.</param>
         /// <returns>The created channel.</returns>
         public static Channel<T> CreateUnbounded<T>(UnboundedChannelOptions options) =>
+            CreateUnbounded<T>(options, new ConcurrentQueue<T>());
+
+        /// <summary>Creates an unbounded channel subject to the provided options.</summary>
+        /// <typeparam name="T">Specifies the type of data in the channel.</typeparam>
+        /// <param name="options">Options that guide the behavior of the channel.</param>
+        /// <param name="queue"></param>
+        /// <returns>The created channel.</returns>
+        public static Channel<T> CreateUnbounded<T>(UnboundedChannelOptions options, IProducerConsumerCollection<T> queue) =>
             options == null ? throw new ArgumentNullException(nameof(options)) :
             options.SingleReader ? new SingleConsumerUnboundedChannel<T>(!options.AllowSynchronousContinuations) :
-            (Channel<T>)new UnboundedChannel<T>(!options.AllowSynchronousContinuations);
+            (Channel<T>)new UnboundedChannel<T>(!options.AllowSynchronousContinuations, queue);
 
         /// <summary>Creates a channel with the specified maximum capacity.</summary>
         /// <typeparam name="T">Specifies the type of data in the channel.</typeparam>
