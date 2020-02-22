@@ -18,7 +18,7 @@ namespace System.Threading.Channels
         /// <summary>Task that indicates the channel has completed.</summary>
         private readonly TaskCompletionSource<VoidResult> _completion;
         /// <summary>The items in the channel.</summary>
-        private readonly ConcurrentQueue<T> _items = new ConcurrentQueue<T>();
+        private readonly IProducerConsumerCollection<T> _items;
         /// <summary>Readers blocked reading from the channel.</summary>
         private readonly Deque<AsyncOperation<T>> _blockedReaders = new Deque<AsyncOperation<T>>();
         /// <summary>Whether to force continuations to be executed asynchronously from producer writes.</summary>
@@ -31,9 +31,16 @@ namespace System.Threading.Channels
 
         /// <summary>Initialize the channel.</summary>
         internal UnboundedChannel(bool runContinuationsAsynchronously)
+            : this(runContinuationsAsynchronously, new ConcurrentQueue<T>())
+        {
+        }
+
+        /// <summary>Initialize the channel.</summary>
+        internal UnboundedChannel(bool runContinuationsAsynchronously, IProducerConsumerCollection<T> queue)
         {
             _runContinuationsAsynchronously = runContinuationsAsynchronously;
             _completion = new TaskCompletionSource<VoidResult>(runContinuationsAsynchronously ? TaskCreationOptions.RunContinuationsAsynchronously : TaskCreationOptions.None);
+            _items = queue ?? throw new ArgumentNullException(nameof(queue));
             Reader = new UnboundedChannelReader(this);
             Writer = new UnboundedChannelWriter(this);
         }
@@ -68,7 +75,7 @@ namespace System.Threading.Channels
 
                 // Dequeue an item if we can.
                 UnboundedChannel<T> parent = _parent;
-                if (parent._items.TryDequeue(out T item))
+                if (parent._items.TryTake(out T item))
                 {
                     CompleteIfDone(parent);
                     return new ValueTask<T>(item);
@@ -79,7 +86,7 @@ namespace System.Threading.Channels
                     parent.AssertInvariants();
 
                     // Try to dequeue again, now that we hold the lock.
-                    if (parent._items.TryDequeue(out item))
+                    if (parent._items.TryTake(out item))
                     {
                         CompleteIfDone(parent);
                         return new ValueTask<T>(item);
@@ -114,7 +121,7 @@ namespace System.Threading.Channels
                 UnboundedChannel<T> parent = _parent;
 
                 // Dequeue an item if we can
-                if (parent._items.TryDequeue(out item))
+                if (parent._items.TryTake(out item))
                 {
                     CompleteIfDone(parent);
                     return true;
@@ -126,7 +133,7 @@ namespace System.Threading.Channels
 
             private void CompleteIfDone(UnboundedChannel<T> parent)
             {
-                if (parent._doneWriting != null && parent._items.IsEmpty)
+                if (parent._doneWriting != null && parent._items.Count == 0)
                 {
                     // If we've now emptied the items queue and we're not getting any more, complete.
                     ChannelUtilities.Complete(parent._completion, parent._doneWriting);
@@ -140,7 +147,7 @@ namespace System.Threading.Channels
                     return new ValueTask<bool>(Task.FromCanceled<bool>(cancellationToken));
                 }
 
-                if (!_parent._items.IsEmpty)
+                if (_parent._items.Count != 0)
                 {
                     return new ValueTask<bool>(true);
                 }
@@ -152,7 +159,7 @@ namespace System.Threading.Channels
                     parent.AssertInvariants();
 
                     // Try again to read now that we're synchronized with writers.
-                    if (!parent._items.IsEmpty)
+                    if (parent._items.Count != 0)
                     {
                         return new ValueTask<bool>(true);
                     }
@@ -211,7 +218,7 @@ namespace System.Threading.Channels
 
                     // Mark that we're done writing.
                     parent._doneWriting = error ?? ChannelUtilities.s_doneWritingSentinel;
-                    completeTask = parent._items.IsEmpty;
+                    completeTask = parent._items.Count == 0;
                 }
 
                 // If there are no items in the queue, complete the channel's task,
@@ -258,7 +265,10 @@ namespace System.Threading.Channels
                         // need to do so outside of the lock.
                         if (parent._blockedReaders.IsEmpty)
                         {
-                            parent._items.Enqueue(item);
+                            if (!parent._items.TryAdd(item))
+                            {
+                                return false;
+                            }
                             waitingReadersTail = parent._waitingReadersTail;
                             if (waitingReadersTail == null)
                             {
@@ -325,7 +335,7 @@ namespace System.Threading.Channels
             Debug.Assert(SyncObj != null, "The sync obj must not be null.");
             Debug.Assert(Monitor.IsEntered(SyncObj), "Invariants can only be validated while holding the lock.");
 
-            if (!_items.IsEmpty)
+            if (_items.Count != 0)
             {
                 if (_runContinuationsAsynchronously)
                 {
@@ -336,7 +346,7 @@ namespace System.Threading.Channels
             }
             if ((!_blockedReaders.IsEmpty || _waitingReadersTail != null) && _runContinuationsAsynchronously)
             {
-                Debug.Assert(_items.IsEmpty, "There are blocked/waiting readers, so there shouldn't be any data available.");
+                Debug.Assert(_items.Count == 0, "There are blocked/waiting readers, so there shouldn't be any data available.");
             }
             if (_completion.Task.IsCompleted)
             {
