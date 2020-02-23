@@ -3682,7 +3682,6 @@ main_loop:
 			if (csignature->hasthis)
 				--sp;
 
-			// FIXME Free this frame earlier?
 			InterpFrame* const child_frame = alloc_frame (context, &retval, frame, NULL, sp, retval);
 
 			if (frame->imethod->method->dynamic && csignature->pinvoke) {
@@ -3691,6 +3690,9 @@ main_loop:
 				const gboolean save_last_error = ip [-3 + 2];
 				ves_pinvoke_method (child_frame, csignature, (MonoFuncV) code, context, save_last_error);
 			}
+
+			pop_frame (context, child_frame);
+
 			CHECK_RESUME_STATE (context);
 
 			if (csignature->ret->type != MONO_TYPE_VOID) {
@@ -5001,8 +5003,6 @@ call_newobj:
 				memmove (sp + 2, sp, param_count * sizeof (stackval));
 			}
 
-			InterpMethod* const imethod = frame->imethod;
-
 			MonoClass * const newobj_class = cmethod->method->klass;
 
 			/*if (profiling_classes) {
@@ -5015,47 +5015,41 @@ call_newobj:
 			 * First arg is the object.
 			 * a constructor returns void, but we need to return the object we created
 			 */
-			if (m_class_is_valuetype (newobj_class)) {
-				MonoType *t = m_class_get_byval_arg (newobj_class);
-				if (!m_class_is_enumtype (newobj_class) && (t->type == MONO_TYPE_VALUETYPE || (t->type == MONO_TYPE_GENERICINST && mono_type_generic_inst_is_valuetype (t)))) {
-					sp [0].data.p = vt_sp; // return value
-					sp [1].data.p = vt_sp; // first parameter
-				} else {
-					memset (sp, 0, sizeof (*sp));
-					sp [1].data.p = &sp [0].data; // first parameter is return value
-				}
-			} else {
-				if (newobj_class != mono_defaults.string_class) {
-					MonoVTable *vtable = mono_class_vtable_checked (imethod->domain, newobj_class, error);
-					if (!is_ok (error) || !mono_runtime_class_init_full (vtable, error)) {
-						MonoException *exc = mono_error_convert_to_exception (error);
-						g_assert (exc);
-						THROW_EX (exc, ip);
-					}
-					error_init_reuse (error);
-					MonoObject* o = NULL; // See the comment about GC safety.
-					OBJREF (o) = mono_object_new_checked (imethod->domain, newobj_class, error);
-					mono_error_cleanup (error); // FIXME: do not swallow the error
-					error_init_reuse (error);
-					EXCEPTION_CHECKPOINT;
-					sp [0].data.o = o; // return value
-					sp [1].data.o = o; // first parameter
-#ifndef DISABLE_REMOTING
-					if (mono_object_is_transparent_proxy (o)) {
-						MonoMethod *remoting_invoke_method = mono_marshal_get_remoting_invoke_with_check (cmethod->method, error);
-						mono_error_assert_ok (error);
-						cmethod = mono_interp_get_imethod (imethod->domain, remoting_invoke_method, error);
-						mono_error_assert_ok (error);
-					}
-#endif
-				} else {
-					retval = sp;
-					++sp;
-					sp->data.p = NULL; // first parameter
-					is_void = TRUE;
-					goto call;
-				}
+
+			g_assert (!m_class_is_valuetype (newobj_class));
+
+			// This branch could be avoided. Move it to transform, and use a new opcode NEWOBJ_STRING.
+			if (newobj_class == mono_defaults.string_class) {
+				retval = sp;
+				++sp;
+				sp->data.p = NULL; // first parameter
+				is_void = TRUE;
+				goto call;
 			}
+
+			MonoDomain* const domain = frame->imethod->domain;
+			MonoVTable *vtable = mono_class_vtable_checked (domain, newobj_class, error);
+			if (!is_ok (error) || !mono_runtime_class_init_full (vtable, error)) {
+				MonoException *exc = mono_error_convert_to_exception (error);
+				g_assert (exc);
+				THROW_EX (exc, ip);
+			}
+			error_init_reuse (error);
+			MonoObject* o = NULL; // See the comment about GC safety.
+			OBJREF (o) = mono_object_new_checked (domain, newobj_class, error);
+			mono_error_cleanup (error); // FIXME: do not swallow the error
+			error_init_reuse (error);
+			EXCEPTION_CHECKPOINT;
+			sp [0].data.o = o; // return value
+			sp [1].data.o = o; // first parameter
+#ifndef DISABLE_REMOTING
+			if (mono_object_is_transparent_proxy (o)) {
+				MonoMethod *remoting_invoke_method = mono_marshal_get_remoting_invoke_with_check (cmethod->method, error);
+				mono_error_assert_ok (error);
+				cmethod = mono_interp_get_imethod (domain, remoting_invoke_method, error);
+				mono_error_assert_ok (error);
+			}
+#endif
 			goto call_newobj;
 		}
 		MINT_IN_CASE(MINT_NEWOBJ_MAGIC) {
@@ -6293,9 +6287,9 @@ call_newobj:
 			gboolean const check = opcode == MINT_LEAVE_CHECK || opcode == MINT_LEAVE_S_CHECK;
 
 			if (check && frame->imethod->method->wrapper_type != MONO_WRAPPER_RUNTIME_INVOKE) {
-				// FIXME Free this frame earlier?
 				InterpFrame* const child_frame = alloc_frame (context, &dummy, frame, NULL, NULL, NULL);
 				MonoException *abort_exc = mono_interp_leave (child_frame);
+				pop_frame (context, child_frame);
 				if (abort_exc)
 					THROW_EX (abort_exc, frame->ip);
 			}
