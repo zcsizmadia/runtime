@@ -41,6 +41,7 @@ namespace System.Text.Json
             jsonPropertyInfo.MemberInfo = memberInfo;
             jsonPropertyInfo.DeterminePropertyName();
             jsonPropertyInfo.IsIgnored = true;
+            jsonPropertyInfo.DeterminePropertyOrder();
 
             Debug.Assert(!jsonPropertyInfo.ShouldDeserialize);
             Debug.Assert(!jsonPropertyInfo.ShouldSerialize);
@@ -56,6 +57,7 @@ namespace System.Text.Json
             DeterminePropertyName();
             DetermineIgnoreCondition(ignoreCondition, defaultValueIsNull);
             DetermineNumberHandling(parentTypeNumberHandling);
+            DeterminePropertyOrder();
         }
 
         private void DeterminePropertyName()
@@ -95,6 +97,24 @@ namespace System.Text.Json
 
             NameAsUtf8Bytes = Encoding.UTF8.GetBytes(NameAsString);
             EscapedNameSection = JsonHelpers.GetEscapedPropertyNameSection(NameAsUtf8Bytes, Options.Encoder);
+        }
+
+        private void DeterminePropertyOrder()
+        {
+            if (MemberInfo == null)
+            {
+                return;
+            }
+
+            JsonPropertyOrderAttribute? orderAttribute = GetAttribute<JsonPropertyOrderAttribute>(MemberInfo);
+            if (orderAttribute != null)
+            {
+                Order = orderAttribute.Order;
+            }
+            else
+            {
+                Order = null;
+            }
         }
 
         private void DetermineSerializationCapabilities(JsonIgnoreCondition? ignoreCondition)
@@ -433,6 +453,7 @@ namespace System.Text.Json
         public bool ShouldSerialize { get; private set; }
         public bool ShouldDeserialize { get; private set; }
         public bool IsIgnored { get; private set; }
+        public int? Order { get; private set; }
 
         public JsonNumberHandling? NumberHandling { get; private set; }
 
