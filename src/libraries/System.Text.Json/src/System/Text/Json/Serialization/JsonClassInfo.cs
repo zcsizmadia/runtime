@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
+using System.Linq;
 
 namespace System.Text.Json
 {
@@ -207,6 +208,9 @@ namespace System.Text.Json
                         // Copy the dictionary cache to the array cache.
                         cache.Values.CopyTo(cacheArray, 0);
 
+                        // Sort cache array
+                        SortCacheArray(ref cacheArray);
+
                         // These are not accessed by other threads until the current JsonClassInfo instance
                         // is finished initializing and added to the cache on JsonSerializerOptions.
                         PropertyCache = cache;
@@ -287,6 +291,18 @@ namespace System.Text.Json
             {
                 (ignoredMembers ??= new Dictionary<string, MemberInfo>()).Add(memberName, memberInfo);
             }
+        }
+
+        private void SortCacheArray(ref JsonPropertyInfo[] cacheArray)
+        {
+            // Order by property name (if class attribute exists)
+            var orderNameAttribute = Type.GetCustomAttribute<JsonPropertyOrderByNameAttribute>();
+            if (orderNameAttribute != null)
+                Array.Sort(cacheArray, (x, y) => string.Compare(x.NameAsString, y.NameAsString, orderNameAttribute.StringComparison));
+
+            // Sort by Order attribute (if any Order attribute was defined)
+            if (cacheArray.Any((x) => x.Order.HasValue))
+                cacheArray = cacheArray.OrderBy((x) => x.Order ?? -1).ToArray();
         }
 
         private sealed class ParameterLookupKey
