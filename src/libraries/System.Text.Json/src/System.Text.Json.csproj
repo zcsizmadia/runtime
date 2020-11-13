@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TargetFrameworks>$(NetCoreAppCurrent);netstandard2.0;netcoreapp3.0;net461</TargetFrameworks>
@@ -64,6 +64,8 @@
     <Compile Include="System\Text\Json\Serialization\Attributes\JsonIncludeAttribute.cs" />
     <Compile Include="System\Text\Json\Serialization\Attributes\JsonNumberHandlingAttribute.cs" />
     <Compile Include="System\Text\Json\Serialization\Attributes\JsonPropertyNameAttribute.cs" />
+    <Compile Include="System\Text\Json\Serialization\Attributes\JsonPropertyOrderAttribute.cs" />
+    <Compile Include="System\Text\Json\Serialization\Attributes\JsonPropertyOrderByNameAttribute.cs" />
     <Compile Include="System\Text\Json\Serialization\ClassType.cs" />
     <Compile Include="System\Text\Json\Serialization\ConverterList.cs" />
     <Compile Include="System\Text\Json\Serialization\Converters\Collection\ArrayConverter.cs" />

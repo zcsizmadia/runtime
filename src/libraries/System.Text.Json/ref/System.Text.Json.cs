@@ -548,6 +548,19 @@ namespace System.Text.Json.Serialization
         public JsonPropertyNameAttribute(string name) { }
         public string Name { get { throw null; } }
     }
+    [System.AttributeUsage(AttributeTargets.Class | System.AttributeTargets.Struct, AllowMultiple = false)]
+    public sealed partial class JsonPropertyOrderByNameAttribute : System.Text.Json.Serialization.JsonAttribute
+    {
+        public JsonPropertyOrderByNameAttribute(StringComparison stringComparison) { }
+        public JsonPropertyOrderByNameAttribute() { }
+        public StringComparison StringComparison { get { throw null; } }
+    }
+    [System.AttributeUsageAttribute(System.AttributeTargets.Field | System.AttributeTargets.Property, AllowMultiple=false)]
+    public sealed partial class JsonPropertyOrderAttribute : System.Text.Json.Serialization.JsonAttribute
+    {
+        public JsonPropertyOrderAttribute(int order) { }
+        public int Order { get { throw null; } }
+    }
     public sealed partial class JsonStringEnumConverter : System.Text.Json.Serialization.JsonConverterFactory
     {
         public JsonStringEnumConverter() { }
