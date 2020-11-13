@@ -1,9 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>$(NetCoreAppCurrent);net461</TargetFrameworks>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Suppress warning 'JsonSerializerOptions.IgnoreNullValues' is obsolete. -->
     <NoWarn>CS0618</NoWarn>
+    <EnableDefaultContentItems>false</EnableDefaultContentItems>
   </PropertyGroup>
   <!-- DesignTimeBuild requires all the TargetFramework Derived Properties to not be present in the first property group. -->
   <PropertyGroup>
@@ -110,6 +111,7 @@
     <Compile Include="Serialization\OptionsTests.cs" />
     <Compile Include="Serialization\PolymorphicTests.cs" />
     <Compile Include="Serialization\PropertyNameTests.cs" />
+    <Compile Include="Serialization\PropertyOrderTests.cs" />
     <Compile Include="Serialization\PropertyVisiblityTests.InitOnly.cs" />
     <Compile Include="Serialization\PropertyVisibilityTests.NonPublicAccessors.cs" />
     <Compile Include="Serialization\PropertyVisibilityTests.cs" />
@@ -155,6 +157,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\src\System\Text\Json\BitStack.cs" Link="BitStack.cs" />
+    <ProjectReference Include="..\src\System.Text.Json.csproj" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' != '$(NetCoreAppCurrent)'">
     <Compile Include="Serialization\IsExternalInit.cs" />
